@@ -1,0 +1,21 @@
+{
+  "name": "ml_quest",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "PORT=3001 concurrently -n auth -c green \"npm run dev -w services/auth-service\"",
+    "dev:all": "concurrently -n auth,problems,submission,analysis -c green,yellow,red,magenta \"PORT=3001 npm run dev -w services/auth-service\" \"PORT=3002 npm run dev -w services/problems-service\" \"PORT=3003 npm run dev -w services/submission-service\" \"PORT=3004 npm run dev -w services/analysis-service\"",
+    "docker:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
+    "docker:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f --tail=200"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.0"
+  }
+}

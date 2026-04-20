@@ -1,0 +1,103 @@
+version: '3.9'
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: lc_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: lc_redis
+    ports:
+      - '6379:6379'
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+      --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  judge-worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/judge-images/Dockerfile
+    container_name: judge_worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: ../../.env.docker
+    environment:
+      NODE_ENV: development
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      SUBMISSIONS_DB_NAME: ml_quest_submissions
+      PROBLEMS_DB_NAME: ml_quest_problems
+    volumes:
+      - /tmp/ml-quest:/tmp/ml-quest
+      - /tmp/ml_quest_testcases:/tmp/ml_quest_testcases
+    networks:
+      - default
+    restart: unless-stopped
+
+  ml-worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/judge-images/Dockerfile.ml
+    container_name: ml_worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: ../../.env.docker
+    environment:
+      NODE_ENV: development
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      SUBMISSIONS_DB_NAME: ml_quest_submissions
+      PROBLEMS_DB_NAME: ml_quest_problems
+    volumes:
+      - /tmp/ml-quest:/tmp/ml-quest
+      - /tmp/ml_quest_testcases:/tmp/ml_quest_testcases
+    networks:
+      - default
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: leetcode_network
